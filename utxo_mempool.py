@@ -98,7 +98,11 @@ class Mempool:
 
 # ---------------------------------------------------------------- mining
 def mine(mempool: Mempool, miner, reward, max_txs=10) -> Block:
-    """Pick the highest fee-rate txs, build + apply a block, clear mempool."""
+    """Pick the highest fee-rate txs, build + apply a block.
+
+    Transactions that don't fit in this block stay in the mempool and are
+    reconsidered for the next one — only mined txs leave the mempool.
+    """
     ordered = sorted(mempool.txs.values(),
                      key=lambda t: t[1] / max(1, len(repr(t[0]))),
                      reverse=True)[:max_txs]
@@ -106,6 +110,8 @@ def mine(mempool: Mempool, miner, reward, max_txs=10) -> Block:
     block = Block([coinbase] + [t for t, _ in ordered])
     mempool.ledger.apply_block(block)
     total_fees = sum(f for _, f in ordered)
-    mempool.txs.clear()
-    mempool.spent.clear()
+    for t, _ in ordered:
+        del mempool.txs[t.txid]
+        for ref in t.inputs:
+            mempool.spent.discard(ref)
     return block, total_fees
