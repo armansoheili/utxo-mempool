@@ -95,6 +95,18 @@ class Mempool:
         self.txs[tx.txid] = (tx, fee)
         return True, f"accepted (fee {fee})"
 
+    def remove(self, txid) -> bool:
+        """Drop a pending tx from the mempool, releasing its claimed inputs.
+
+        Returns True if the tx was present and removed, False otherwise.
+        """
+        if txid not in self.txs:
+            return False
+        tx, _ = self.txs.pop(txid)
+        for ref in tx.inputs:
+            self.spent.discard(ref)
+        return True
+
 
 # ---------------------------------------------------------------- mining
 def mine(mempool: Mempool, miner, reward, max_txs=10) -> Block:
